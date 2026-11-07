@@ -23,6 +23,23 @@ export const randomName = () => `${A[(Math.random() * A.length) | 0]} ${B[(Math.
 function read() { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } }
 function write(list) { try { localStorage.setItem(KEY, JSON.stringify(list)); return true; } catch (e) { return false; } }
 
+const PKEY = 'atelier-feerique-photos-v1', CKEY = 'atelier-feerique-current-v1';
+function readP() { try { return JSON.parse(localStorage.getItem(PKEY) || '[]'); } catch (e) { return []; } }
+export const photos = {
+  list: readP,
+  /** Newest first. If the browser quota is reached, the oldest photos are dropped. */
+  add(entry) {
+    const l = readP(); l.unshift(entry);
+    while (l.length) { try { localStorage.setItem(PKEY, JSON.stringify(l)); return true; } catch (e) { l.pop(); } }
+    return false;
+  },
+  remove(id) { try { localStorage.setItem(PKEY, JSON.stringify(readP().filter((e) => e.id !== id))); } catch (e) { } },
+};
+export const current = {
+  save(look) { try { localStorage.setItem(CKEY, JSON.stringify(look)); } catch (e) { } },
+  load() { try { return JSON.parse(localStorage.getItem(CKEY) || 'null'); } catch (e) { return null; } },
+};
+
 export const store = {
   list() { return read(); },
   add(entry) { const l = read(); l.unshift(entry); while (l.length > 24) l.pop(); return write(l); },

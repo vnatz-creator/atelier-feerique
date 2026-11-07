@@ -27,6 +27,18 @@
   button.big.alt { background:linear-gradient(180deg,#c9b2ff,#9b6bff); box-shadow:0 6px 0 #6b3fd6, 0 12px 24px rgba(107,63,214,.3), inset 0 2px 0 rgba(255,255,255,.5); }
   button.big:hover:not(:disabled) { transform:translateY(-3px) scale(1.03); } button.big:active:not(:disabled) { transform:translateY(3px); }
   button.big:disabled { filter:grayscale(.7) opacity(.7); cursor:not-allowed; }
+  button.big.teal { background:linear-gradient(180deg,#7be0d8,#2bb5ab); box-shadow:0 6px 0 #1b867f, 0 12px 24px rgba(27,134,127,.3), inset 0 2px 0 rgba(255,255,255,.5); }
+  button.big.red { background:linear-gradient(180deg,#ff9aa8,#ff5a73); box-shadow:0 6px 0 #c63a52, 0 12px 24px rgba(198,58,82,.3), inset 0 2px 0 rgba(255,255,255,.5); }
+  a.big { text-decoration:none; display:inline-block; font:700 17px "Fredoka",sans-serif; color:#fff; padding:10px 18px; border-radius:999px; cursor:pointer;
+    background:linear-gradient(180deg,#c9b2ff,#9b6bff); box-shadow:0 6px 0 #6b3fd6, 0 12px 24px rgba(107,63,214,.3), inset 0 2px 0 rgba(255,255,255,.5); }
+  #photos-section { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .gal { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; max-width:1100px; }
+  #flash { position:fixed; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:20; }
+  #flash.go { animation: flash .5s ease-out; } @keyframes flash { 0% { opacity:.9 } 100% { opacity:0 } }
+  #lb { position:fixed; inset:0; z-index:30; display:flex; align-items:center; justify-content:center; background:rgba(120,30,90,.55); backdrop-filter:blur(6px); padding:12px; }
+  .lbbox { display:flex; flex-direction:column; align-items:center; gap:12px; max-height:100%; }
+  #lb-img { max-width:min(92vw,560px); max-height:68vh; border-radius:22px; box-shadow:0 0 0 6px #ffc94d, 0 0 0 9px #fff, 0 20px 40px rgba(0,0,0,.35); }
+  .lbbtns { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; } .lbbtns .big { font-size:17px; padding:10px 18px; }
   #vr-note { margin:0; color:var(--ink); font-size:14px; min-height:18px; max-width:560px; }
   h2 { margin:8px 0 0; color:var(--ink); font-size:clamp(18px,2.6vw,26px); }
   #gal { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; max-width:1100px; }
@@ -38,7 +50,7 @@
   #menu { position:fixed; top:12px; left:12px; z-index:5; font:700 16px "Fredoka",sans-serif; padding:10px 18px; border:0; border-radius:999px; color:#fff; cursor:pointer; background:linear-gradient(180deg,#ff8fc4,var(--pink)); box-shadow:0 4px 0 #c92a82; }
   .notice { display:none; margin:0; max-width:520px; padding:10px 16px; border-radius:16px; background:#fff; color:var(--ink); font-size:14px; line-height:1.35; box-shadow:0 0 0 3px #ffc94d, 0 6px 14px rgba(140,20,90,.2); }
   body.mobile .notice { display:block; }
-  #badge { display:none; position:fixed; left:50%; bottom:10px; transform:translateX(-50%); z-index:5; max-width:92vw; padding:8px 14px; border-radius:999px; background:rgba(255,255,255,.92); color:var(--ink); font:600 12px "Fredoka",sans-serif; text-align:center; box-shadow:0 0 0 2px #ffc94d; }
+  #badge { display:none; position:fixed; right:10px; top:12px; z-index:5; max-width:48vw; padding:6px 12px; border-radius:16px; background:rgba(255,255,255,.92); color:var(--ink); font:600 11px/1.25 "Fredoka",sans-serif; text-align:center; box-shadow:0 0 0 2px #ffc94d; }
   body.mobile #badge:not(.hidden) { display:block; }
   body.mobile .tips, body.mobile .btns #btn-vr { display:none; }
   #loading { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:10; background:linear-gradient(160deg,#ffd3e6,#e7cdff); color:#fff; font:700 28px "Fredoka",sans-serif; text-shadow:0 2px 0 var(--pink); }
@@ -48,6 +60,8 @@
 <canvas id="c"></canvas>
 <div id="loading">✨ Préparation de la magie… ✨</div>
 <button id="menu" class="hidden">🏠 Menu</button>
+<div id="flash"></div>
+<div id="lb" class="hidden"><div class="lbbox"><img id="lb-img" alt="Photo"><div class="lbbtns"><a id="lb-dl" class="big alt" href="#" download>⬇ Télécharger</a><button id="lb-del" class="big red">🗑 Supprimer</button><button id="lb-close" class="big">✕ Fermer</button></div></div></div>
 <div id="badge" class="hidden">📱 Démo · optimisé VR et ordinateur</div>
 <div id="overlay">
   <div class="bubbles"><span style="left:6%;top:18%;width:60px;height:60px"></span><span style="left:88%;top:12%;width:90px;height:90px;animation-delay:-3s"></span><span style="left:12%;top:72%;width:110px;height:110px;animation-delay:-5s"></span><span style="left:82%;top:70%;width:50px;height:50px;animation-delay:-2s"></span></div>
@@ -55,13 +69,15 @@
   <p class="tag">Habille tes princesses et tes amis avec plein de jolis vêtements et d'accessoires&nbsp;!</p>
   <div class="btns">
     <button id="btn-vr" class="big">🥽 Jouer en VR</button>
-    <button id="btn-desktop" class="big alt">🖱️ Jouer à la souris</button>
+    <button id="btn-desktop" class="big alt">🖥️ Jouer sur ordinateur</button>
+    <button id="btn-resume" class="big teal">▶ Reprendre ma poupée</button>
   </div>
   <p id="notice" class="notice">📱 Version démo pour mobile et tablette : le jeu est optimisé pour la <b>VR (Meta Quest)</b> et pour <b>ordinateur</b>.</p>
   <p id="vr-note"></p>
   <h2>💖 Les créations déjà réalisées</h2>
   <div id="gal"></div>
-  <p class="tips">En VR, aucune manette n'est nécessaire : <b>pince le pouce et l'index</b> 🤏 pour attraper un habit, glisse-le sur la poupée puis relâche. Pince aussi la poupée pour la faire tourner. (Active le suivi des mains dans les paramètres du Meta Quest.)</p>
+  <div id="photos-section" class="hidden"><h2>📷 Mes photos</h2><div id="photos" class="gal"></div></div>
+  <p class="tips">En VR, aucune manette n'est nécessaire : <b>pince le pouce et l'index</b> 🤏 pour attraper un habit, glisse-le sur la poupée puis relâche. Pince aussi la poupée pour la faire tourner. Le bouton <b>👁 Voir</b> ouvre le mode visualisation : zoom, mouvements (sourire, coucou, révérence, saut, danse), fonds d'écran et 📷 photos. (Active le suivi des mains dans les paramètres du Meta Quest.)</p>
 </div>
 <script type="module" src="./src/main.js"></script>
 </body>

@@ -77,7 +77,7 @@ export class Hands {
     const d = this.dom;
     const upd = (e) => { const r = d.getBoundingClientRect(); this.mouseNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); this.mouseOn = true; };
     d.addEventListener('pointermove', upd);
-    d.addEventListener('pointerdown', (e) => { upd(e); this.mouse.selecting = true; this.mouse.stick = 4; });
+    d.addEventListener('pointerdown', (e) => { if (!e.isPrimary) return; upd(e); this.mouse.selecting = true; this.mouse.stick = 4; });
     window.addEventListener('pointerup', () => { this.mouse.selecting = false; });
     d.addEventListener('pointerleave', () => { this.mouseOn = false; });
   }

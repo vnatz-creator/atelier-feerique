@@ -150,12 +150,14 @@ export class Room {
     /* fairy lights */
     this.makeFairyLights(G, W, zF, zB, cz, Hh);
     /* lights */
-    const hemi = new THREE.HemisphereLight(0xfff0f8, 0xffc4dd, 0.65); G.add(hemi);
+    // lights live outside the room group so they still work when a panorama replaces the room
+    const L = this.lights = new THREE.Group(); scene.add(L);
+    const hemi = new THREE.HemisphereLight(0xfff0f8, 0xffc4dd, 0.65); L.add(hemi);
     const key = new THREE.DirectionalLight(0xfff1e2, 1.9); key.position.set(-1.0, 3.0, 1.4); key.target.position.set(0, 0.9, -0.8);
     key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.camera.left = -1.2; key.shadow.camera.right = 1.2; key.shadow.camera.top = 1.4; key.shadow.camera.bottom = -0.6; key.shadow.camera.near = 0.5; key.shadow.camera.far = 7;
-    key.shadow.bias = -0.0004; key.shadow.normalBias = 0.01; key.shadow.radius = 4; G.add(key, key.target); this.key = key;
-    const fill = new THREE.PointLight(0xffb9dc, 14, 6, 1.6); fill.position.set(0.9, 1.9, -0.2); G.add(fill);
-    const rim = new THREE.PointLight(0xcdb7ff, 8, 5, 1.6); rim.position.set(-0.9, 1.7, -2.1); G.add(rim);
+    key.shadow.bias = -0.0004; key.shadow.normalBias = 0.01; key.shadow.radius = 4; L.add(key, key.target); this.key = key;
+    const fill = new THREE.PointLight(0xffb9dc, 14, 6, 1.6); fill.position.set(0.9, 1.9, -0.2); L.add(fill);
+    const rim = new THREE.PointLight(0xcdb7ff, 8, 5, 1.6); rim.position.set(-0.9, 1.7, -2.1); L.add(rim);
   }
 
   makeBed(G, x, zF) {

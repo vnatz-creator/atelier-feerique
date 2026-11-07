@@ -94,7 +94,7 @@ export function makePanel(w, h, { r = 0.05, tint = 0xffd9ec, border = 0xff9ccf, 
   const g = new THREE.Group();
   const frame = new THREE.Mesh(roundedGeo(w + 0.024, h + 0.024, r + 0.012, 0.012, 0.004), new THREE.MeshPhysicalMaterial({ color: border, roughness: 0.25, metalness: 0.3, clearcoat: 1, emissive: border, emissiveIntensity: 0.12 }));
   frame.position.z = -0.012; g.add(frame);
-  const glass = new THREE.Mesh(roundedGeo(w, h, r, 0.008, 0.003), new THREE.MeshPhysicalMaterial({ color: tint, roughness: 0.3, clearcoat: 0.8, transparent: true, opacity, emissive: tint, emissiveIntensity: 0.18, depthWrite: true }));
+  const glass = new THREE.Mesh(roundedGeo(w, h, r, 0.008, 0.003), new THREE.MeshPhysicalMaterial({ color: tint, roughness: 0.5, clearcoat: 0.15, envMapIntensity: 0.35, transparent: true, opacity: Math.max(opacity, 0.9), emissive: tint, emissiveIntensity: 0.12, depthWrite: true }));
   glass.position.z = -0.002; g.add(glass);
   return g;
 }
@@ -282,8 +282,8 @@ export class Wardrobe {
 /* ---------- Gallery (home) ---------- */
 const texLoader = new THREE.TextureLoader();
 export class Gallery {
-  constructor({ kit, parent, onOpen, onDelete, onNew }) {
-    this.kit = kit; this.onOpen = onOpen; this.onDelete = onDelete; this.page = 0; this.items = []; this.perPage = 8; this.narrow = false;
+  constructor({ kit, parent, onOpen, onDelete, onNew, onMode, onResume }) {
+    this.kit = kit; this.onOpen = onOpen; this.onDelete = onDelete; this.page = 0; this.items = []; this.perPage = 8; this.narrow = false; this.mode = 'creations';
     this.group = new THREE.Group(); parent.add(this.group);
     const R = 0.72; this.R = R;
     // soft curved backdrop
@@ -302,7 +302,32 @@ export class Gallery {
     place(this.prev, -0.93, 1.18); place(this.next, 0.93, 1.18);
     this.newBtn = new Button(kit, { w: 0.5, h: 0.13, color: 0xff3d97, icon: '', text: '✨ Nouvelle création', fs: 40, radius: 0.15, onPress: onNew });
     place(this.newBtn, 0, 0.64);
+    // switch between creations and photos
+    this.toggle = new Button(kit, { w: 0.32, h: 0.1, color: 0x9b6bff, text: '📷 Mes photos', fs: 30, radius: 0.12, onPress: () => {
+      this.mode = this.mode === 'photos' ? 'creations' : 'photos'; this.page = 0; this.closeBig(); this.updateTexts(); onMode && onMode(this.mode);
+    } });
+    place(this.toggle, 0.75, 0.64);
+    this.resume = new Button(kit, { w: 0.32, h: 0.1, color: 0x4cc9c0, text: '▶ Reprendre', fs: 30, radius: 0.12, onPress: onResume });
+    place(this.resume, -0.75, 0.64);
+    // enlarged photo viewer
+    this.big = new THREE.Group(); this.big.position.set(0, 1.18, -0.5); this.big.visible = false; this.group.add(this.big);
+    const bf = new THREE.Mesh(roundedGeo(0.56, 0.7, 0.04, 0.02, 0.006), new THREE.MeshPhysicalMaterial({ color: 0xffc94d, metalness: 1, roughness: 0.22 }));
+    this.bigPic = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.625), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false })); this.bigPic.position.set(0, 0, 0.03);
+    const bl = new Label(0.4, 0.05, { text: 'Touche pour fermer', fs: 22, color: '#fff', stroke: 'rgba(214,51,138,0.9)' }, 1600); bl.mesh.position.set(0, -0.315, 0.035);
+    this.big.add(bf, this.bigPic, bl.mesh);
+    this.bigTarget = kit.interaction.add({ obj: this.big, radius: 0.3, priority: 6, enabled: () => this.big.visible, onPress: () => { sfx.back(); this.closeBig(); } });
   }
+  updateTexts() {
+    const p = this.mode === 'photos';
+    this.sub.set({ text: p ? 'Mes photos · touche pour agrandir' : 'Mes créations · pince 🤏 pour choisir', fs: 40, color: '#ffffff', stroke: 'rgba(214,51,138,0.85)' });
+    this.toggle.set({ text: p ? '💖 Mes créations' : '📷 Mes photos', fs: 30 });
+    this.newBtn.group.visible = this.resume.group.visible = !p;
+  }
+  showBig(entry) {
+    sfx.pick(); const tex = texLoader.load(entry.thumb); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    this.bigPic.material.map = tex; this.bigPic.material.needsUpdate = true; this.big.visible = true;
+  }
+  closeBig() { this.big.visible = false; }
   _frame(i) {
     const col = i % 4, row = (i / 4) | 0, a = (col - 1.5) * 0.36, y = 1.4 - row * 0.4, R = this.R;
     const g = new THREE.Group(); g.position.set(Math.sin(a) * R, y, -Math.cos(a) * R); g.rotation.y = -a;
@@ -316,7 +341,7 @@ export class Gallery {
     const del = new Button(this.kit, { w: 0.045, h: 0.045, color: 0xff6b8b, text: '✕', fs: 40, radius: 0.04, depth: 0.01, onPress: () => this.onDelete(f.entry) });
     del.group.position.set(fw / 2 - 0.012, fh / 2 - 0.012, 0.04); g.add(del.group);
     const f = { g, pic, name, badge, del, entry: null, s: 1 };
-    f.target = this.kit.interaction.add({ obj: g, radius: 0.13, priority: 1, enabled: () => !!f.entry, onPress: () => { sfx.equip(); this.onOpen(f.entry); } });
+    f.target = this.kit.interaction.add({ obj: g, radius: 0.13, priority: 1, enabled: () => !!f.entry, onPress: () => { if (f.entry.photo) this.showBig(f.entry); else { sfx.equip(); this.onOpen(f.entry); } } });
     return f;
   }
   /** Phone portrait: 2 columns x 3 rows instead of 4 x 2. */
@@ -328,7 +353,7 @@ export class Gallery {
       f.g.position.set(Math.sin(a) * R, (narrow ? 1.45 : 1.4) - row * 0.4, -Math.cos(a) * R); f.g.rotation.y = -a;
     });
     const place = (b, a, y) => { b.group.position.set(Math.sin(a) * R, y, -Math.cos(a) * R); b.group.rotation.y = -a; };
-    place(this.prev, narrow ? -0.62 : -0.93, narrow ? 1.05 : 1.18); place(this.next, narrow ? 0.62 : 0.93, narrow ? 1.05 : 1.18); place(this.newBtn, 0, narrow ? 0.36 : 0.64);
+    place(this.prev, narrow ? -0.62 : -0.93, narrow ? 1.05 : 1.18); place(this.next, narrow ? 0.62 : 0.93, narrow ? 1.05 : 1.18); place(this.newBtn, 0, narrow ? 0.4 : 0.64); place(this.toggle, narrow ? 0 : 0.75, narrow ? 0.22 : 0.64); place(this.resume, narrow ? 0 : -0.75, narrow ? 0.04 : 0.64);
     this.refresh();
   }
   setItems(items) { this.items = items; this.page = Math.min(this.page, Math.max(0, Math.ceil(items.length / this.perPage) - 1)); this.refresh(); }

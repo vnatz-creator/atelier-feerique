@@ -35,6 +35,7 @@ export const sfx = {
   equip() { if (!muted) { const t = now(); [72, 76, 79, 84, 88, 91].forEach((m, i) => tone(N(m), t + i * 0.06, 0.45, { vol: 0.11 })); } },
   remove() { if (!muted) { const t = now(); tone(N(84), t, 0.2, { vol: 0.1, slide: 0.6 }); tone(N(77), t + 0.08, 0.2, { vol: 0.08, slide: 0.6 }); } },
   save() { if (!muted) { const t = now(); [72, 76, 79, 84, 79, 84, 88, 96].forEach((m, i) => tone(N(m), t + i * 0.09, 0.6, { vol: 0.12 })); } },
+  shutter() { if (!muted) { const t = now(); tone(N(96), t, 0.05, { vol: 0.12, type: 'square' }); tone(N(84), t + 0.07, 0.12, { vol: 0.1, type: 'square' }); tone(N(100), t + 0.2, 0.5, { vol: 0.08 }); } },
   back() { if (!muted) tone(N(74), now(), 0.25, { vol: 0.1, slide: 0.75 }); },
   get muted() { return muted; },
   setMuted(m) { muted = m; if (musicGain) musicGain.gain.value = m ? 0 : 0.16; },
