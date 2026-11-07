@@ -20,7 +20,7 @@ for (let i = 0; i < 3; i++) {
 }
 BONES.push(['thumb-metacarpal', 'index-finger-metacarpal'], ['thumb-phalanx-proximal', 'index-finger-metacarpal']);
 
-const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _s = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+const _v3 = new THREE.Vector3(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _s = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
 
 export class Hand {
   constructor(id) {
@@ -29,6 +29,9 @@ export class Hand {
     this.pinching = false; this.started = false; this.ended = false;
     this.held = null; this.hover = null; this.depth = 0.9; this.inputSource = null; this.selecting = false;
     this.pinchTime = 0; this.startPos = new THREE.Vector3();
+    // far pointing (ray along the hand's pointer pose, like the Quest system pointer)
+    this.rayO = new THREE.Vector3(); this.rayD = new THREE.Vector3(0, 0, -1); this.rayOn = false;
+    this.rayMode = false; this.rayDist = 1; this.rayHit = null; this.nearHover = false;
   }
 }
 
@@ -47,6 +50,33 @@ export class Hands {
     for (const h of [...this.list, this.mouse]) {
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xffa6d8, transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending }));
       sp.renderOrder = 999; sp.visible = false; this.group.add(sp); h.cursor = sp;
+    }
+    // pointing rays: thin beam + a dot where it lands
+    for (const h of this.list) {
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.0016, 0.0016, 1, 6, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd0ea, transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false }));
+      beam.visible = false; beam.frustumCulled = false; beam.renderOrder = 998; this.group.add(beam); h.beam = beam;
+      const dot = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xffffff, transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending }));
+      dot.renderOrder = 999; dot.visible = false; this.group.add(dot); h.dot = dot;
+    }
+  }
+
+  /** Draw the pointing rays (call after Interaction.update, which computes the hits). */
+  drawRays() {
+    for (const h of this.list) {
+      const show = h.tracked && h.rayOn && !h.nearHover && !(h.held && !h.rayMode);
+      h.beam.visible = h.dot.visible = false;
+      if (!show) continue;
+      const hit = h.rayHit || (h.held && h.rayMode ? { d: h.rayDist } : null);
+      const L = hit ? hit.d : 1.2;
+      h.beam.position.copy(h.rayO).addScaledVector(h.rayD, L / 2);
+      h.beam.quaternion.setFromUnitVectors(UP, h.rayD); h.beam.scale.set(1, L, 1);
+      h.beam.material.opacity = hit ? 0.85 : 0.3; h.beam.material.color.set(h.pinching ? 0xffe27a : 0xffd0ea);
+      h.beam.visible = true;
+      if (hit) {
+        h.dot.position.copy(h.rayO).addScaledVector(h.rayD, L);
+        const s = h.pinching ? 0.075 : 0.05; h.dot.scale.setScalar(s * Math.max(1, L * 0.7));
+        h.dot.material.color.set(h.pinching ? 0xffe27a : 0xffffff); h.dot.visible = true;
+      }
     }
   }
 
@@ -96,6 +126,8 @@ export class Hands {
         h.ctrl.getWorldPosition(h.tip); _v.set(0, 0, -1).applyQuaternion(h.ctrl.getWorldQuaternion(_q)); h.pinchPos.copy(h.tip).addScaledVector(_v, 0.09);
         h.pinching = h.selecting; h.vis.joints.visible = h.vis.bones.visible = false;
       }
+      h.rayOn = false;
+      if (h.tracked && h.ctrl && (h.ctrl.visible || h.ctrl.position.lengthSq() > 1e-6)) { /* pointer pose received */ h.ctrl.getWorldPosition(h.rayO); h.rayD.set(0, 0, -1).applyQuaternion(h.ctrl.getWorldQuaternion(_q)).normalize(); h.rayOn = true; }
       h.started = h.pinching && !was; h.ended = !h.pinching && was;
     }
     // mouse as a virtual hand
@@ -176,20 +208,37 @@ export class Interaction {
       if (!h.tracked) { if (h.held) { h.held.onRelease && h.held.onRelease(h); h.held = null; } h.hover = null; continue; }
       if (h.held) {
         h.held.hovered = true;
+        if (h.rayMode && h.rayOn) h.pinchPos.copy(h.rayO).addScaledVector(h.rayD, h.rayDist); // far grab: the item rides the ray
         h.held.onHold && h.held.onHold(h, dt);
-        if (!h.pinching) { const t = h.held; h.held = null; t.onRelease && t.onRelease(h); }
+        if (!h.pinching) { const t = h.held; h.held = null; h.rayMode = false; t.onRelease && t.onRelease(h); }
         continue;
       }
+      // 1) direct touch: pinch point inside a target
       let best = null, bs = -1e9;
       for (const t of this.targets) {
         if (!t.isActive()) continue;
         t.center(_v); const d = _v.distanceTo(h.pinchPos);
         if (d <= t.radius) { const s = (t.priority || 1) * 10 - d / t.radius; if (s > bs) { bs = s; best = t; } }
       }
-      h.hover = best; if (best) best.hovered = true;
-      if (h.started && best && !hands.all.some((o) => o !== h && o.held === best)) {
+      h.nearHover = !!best; h.rayHit = null; h.rayMode = false;
+      // 2) far pointing: nothing in reach, so follow the pointer ray
+      if (!best && h.rayOn) {
+        let rb = null, rs = -1e9, rd = 0;
+        for (const t of this.targets) {
+          if (!t.isActive()) continue;
+          t.center(_v); _v2.copy(_v).sub(h.rayO); const tt = _v2.dot(h.rayD);
+          if (tt < 0.08 || tt > 8) continue;
+          const perp = _v2.sub(_v3.copy(h.rayD).multiplyScalar(tt)).length(), r = t.radius * 0.85;
+          if (perp <= r) { const s = (t.priority || 1) * 10 - perp / r - tt * 0.01; if (s > rs) { rs = s; rb = t; rd = tt; } }
+        }
+        if (rb) { h.rayHit = { t: rb, d: rd }; }
+      }
+      const tgt = best || (h.rayHit && h.rayHit.t) || null;
+      h.hover = tgt; if (tgt) tgt.hovered = true;
+      if (h.started && tgt && !hands.all.some((o) => o !== h && o.held === tgt)) {
+        if (!best) { h.rayMode = true; h.rayDist = h.rayHit.d; h.pinchPos.copy(h.rayO).addScaledVector(h.rayD, h.rayDist); }
         h.startPos.copy(h.pinchPos); h.pinchTime = performance.now();
-        if (best.grab) { h.held = best; best.onGrab && best.onGrab(h); } else best.onPress && best.onPress(h);
+        if (tgt.grab) { h.held = tgt; tgt.onGrab && tgt.onGrab(h); } else tgt.onPress && tgt.onPress(h);
       }
     }
   }

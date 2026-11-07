@@ -393,7 +393,7 @@ function frame() {
   baseRing.parent.position.y = 0; baseRing.position.y = -ws.position.y;
   baseGold.position.y = -ws.position.y + 0.012;
   hands.update(dt, interaction.targets, xr);
-  interaction.update(hands, dt);
+  interaction.update(hands, dt); hands.drawRays();
   kit.update(dt, T); wardrobe.update(dt, T); gallery.update(dt, T);
   doll.yaw += (yawTarget - doll.yaw) * Math.min(1, dt * 8);
   if (!rotGrab) doll.sway += (1 - doll.sway) * Math.min(1, dt * 0.4);

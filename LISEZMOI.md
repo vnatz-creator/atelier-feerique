@@ -27,6 +27,11 @@ Le navigateur du Quest exige HTTPS **ou** `localhost`. Deux options :
 
 > Réglage Quest : *Paramètres → Mouvements et contrôleurs → Suivi des mains* doit être activé (posé les manettes).
 
+## Pointage à distance (VR)
+Comme le pointeur système du Quest : un rayon part de la main dans la direction visée et un point s'allume sur le bouton ou l'habit visé.
+**Pincer = clic** (boutons, onglets, cadres) ; pincer un habit au bout du rayon l'attrape, on bouge la main pour le guider vers la poupée, on relâche.
+Pincer directement sur un objet à portée de main fonctionne toujours (le rayon se cache alors).
+
 ## Comment jouer
 - **Pincer** 🤏 un habit dans la garde-robe (à droite) → **glisser** vers la poupée → **relâcher** : elle s'habille ✨.
 - Un **pincement rapide** sur un habit l'enfile directement ; sur un habit déjà porté (✔), il l'enlève.
